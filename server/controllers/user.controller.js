@@ -1,24 +1,45 @@
 const User = require("../db/models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 module.exports = {
-  create: (req, res) => {
+  create: async (req, res) => {
     if (!req.body) {
       res.status(400).send({
         message: "Content cannot be empty!",
       });
     }
 
+    const { first_name, last_name, email, password } = req.body;
+    if (!(email || password || first_name || last_name)) {
+      res.status(400).send("All input is required");
+    }
+
+    const encryptedPassword = await bcrypt.hash(password, 10);
+
     const user = new User({
-      name: req.body.name,
+      first_name,
+      last_name,
+      email: email.toLowerCase(),
+      password: encryptedPassword,
     });
 
-    User.create(user, (error, data) => {
+    User.create(user, (error, newUser) => {
       if (error)
         res.status(500).send({
           message:
             error.message || "Some error occurred while creating the user.",
         });
-      else res.send(data);
+      else {
+        const token = jwt.sign(
+          { user_id: newUser.id, email },
+          process.env.TOKEN_KEY,
+          {
+            expiresIn: "2h",
+          }
+        );
+        res.send({ ...newUser, token });
+      }
     });
   },
   findAll: (req, res) => {
@@ -82,6 +103,37 @@ module.exports = {
       return res.send({
         message: `User succesfully deleted.`,
       });
+    });
+  },
+  login: (req, res) => {
+    let { email, password } = req.body;
+    email = email.toLowerCase().trim();
+
+    if (!(email && password)) {
+      res.status(400).send("All input is required");
+    }
+
+    User.findByEmail(email, (error, data) => {
+      if (error) {
+        res.send(error);
+      } else {
+        if (bcrypt.compare(password, data.password)) {
+          const token = jwt.sign(
+            { user_id: data.id, email },
+            process.env.TOKEN_KEY,
+            {
+              expiresIn: "2h",
+            }
+          );
+          res.send({ ...data, token });
+        }
+      }
+    });
+  },
+  logout: (req, res) => {
+    User.logOut(req.body.user, (error, data) => {
+      if (error) res.send(error);
+      res.send(data);
     });
   },
 };

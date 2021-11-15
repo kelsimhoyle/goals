@@ -31,8 +31,8 @@ class Goal {
   static async getUserGoals(id, result) {
     sql.query(
       `SELECT * FROM goal
-    JOIN user ON user.id = goal.user
-    AND goal.user = ?;`,
+        JOIN user ON user.id = goal.user
+        AND goal.user = ?;`,
       id,
       (error, data) => {
         if (error) return result(error, null);

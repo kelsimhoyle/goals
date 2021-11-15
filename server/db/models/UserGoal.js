@@ -30,7 +30,6 @@ class UserGoal {
 
   static getByUserId(userId, options, result) {
     const { orderby, order, category } = options;
-    console.log(options)
 
     let queryString = `SELECT goal.id AS goal_id, category.title AS category, goal.title AS goal, goal.created_date, goal.target_date, goal.completed
       FROM user_goal
@@ -39,13 +38,47 @@ class UserGoal {
       WHERE user_goal.user_id = ?`;
     if (category) {
       queryString += ` AND user_goal.category_id = ${category}`;
-    } else if (orderby) {
+    }
+
+    if (orderby) {
       queryString += ` ORDER BY ${orderby} ${order}`;
     }
     sql.query(`${queryString};`, userId, (error, res) => {
       if (error) return result(error, null);
-      return result(null, res)
+      return result(null, res);
     });
+  }
+
+  static async createUserGoal(userId, goal, category, result) {
+    // see if the category exists
+
+    sql.query(
+      `
+      INSERT INTO  category (title) SELECT "${category}" WHERE   NOT EXISTS (SELECT id FROM category WHERE title = ? );
+      `,
+      category
+    ),
+      (error, res) => {
+        if (error) {
+          return result(error, null);
+        }
+      };
+
+    sql.query(
+      `SELECT id FROM category where title = ?;`,
+      category,
+      (error, catId) => {
+        sql.query(`INSERT INTO goal SET ?`, goal, (error, newGoal) => {
+          sql.query(
+            `INSERT INTO user_goal (user_id, goal_id, category_id) VALUES (?, ?, ?);`,
+            [userId, newGoal.insertId, catId[0].id],
+            (error, newUserGoal) => {
+              return result(null, newUserGoal);
+            }
+          );
+        });
+      }
+    );
   }
 }
 

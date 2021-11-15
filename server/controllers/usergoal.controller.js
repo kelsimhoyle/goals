@@ -30,13 +30,14 @@ module.exports = {
     });
   },
   createNewGoal: (req, res) => {
-    if (!req.body) {
+    if (!req.body || !req.body.goal || !req.body.category ) {
       res.status(400).send({
         message: "Content cannot be empty!",
       });
     }
 
     const { goal, category } = req.body;
+    console.log(category);
     const todayDate = new Date().toISOString().slice(0, 10);
 
     const newGoal = new Goal({
@@ -44,50 +45,14 @@ module.exports = {
       created_date: todayDate,
     });
 
-    Goal.create(newGoal, (error, data) => {
-      let goalId;
-      let categoryId;
-
-      if (error) {
-        return res.status(500).send({
-          message:
-            error.message || "Some error occurred while creating new goal.",
-        });
+    UserGoal.createUserGoal(
+      req.params.id,
+      newGoal,
+      category.title,
+      (err, data) => {
+        res.send(data);
       }
-
-      goalId = data.id;
-
-      Category.findByTitle(category.title, (error, data) => {
-        if (error) {
-          const newCat = new Category({ ...category });
-          Category.create(newCat, (err, newData) => {
-           
-            console.log(newData)
-            categoryId = newData.id;
-
-            const newUserGoal = new UserGoal({
-              user_id: req.params.id,
-              goal_id: goalId,
-              category_id: categoryId,
-            });
-            UserGoal.create(newUserGoal, (error, data) => {
-              res.send(data ? data : error);
-            });
-          });
-        } else if (data) {
-          categoryId = data.id;
-
-          const newUserGoal = new UserGoal({
-            user_id: req.params.id,
-            goal_id: goalId,
-            category_id: categoryId,
-          });
-          UserGoal.create(newUserGoal, (error, data) => {
-            res.send(data ? data : error);
-          });
-        }
-      });
-    });
+    );
   },
   getById: (req, res) => {
     UserGoal.getById(req.params.id, (error, data) => {
